@@ -247,6 +247,7 @@ def parse_infrastructure(parser, input_config, config):
         ["cloud_nodes", int, lambda x: x >= 0, False, 0],
         ["edge_nodes", int, lambda x: x >= 0, False, 0],
         ["endpoint_nodes", int, lambda x: x >= 0, False, 0],
+        ["use_gpu_endpoint", bool, lambda x: x in [True, False], False, False ]
     ]
 
     for s in settings:

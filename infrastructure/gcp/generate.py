@@ -256,6 +256,49 @@ resource "google_compute_instance" "endpoint" {
 }
 """
 
+ENDPOINT_GPU = """
+resource "google_compute_instance" "endpoint" {
+    name         = "endpoint${count.index}"
+    machine_type = %s
+    count        = %i
+
+    boot_disk {
+        initialize_params {
+            size  = "30"
+            type  = "pd-standard"
+            image = "opencraft2/ubuntu2004-nvidia-gpu-docker-xorg-4"
+        }
+    }
+
+    network_interface {
+        network    = google_compute_network.vpc_network.name
+        subnetwork = google_compute_subnetwork.subnetwork_endpoint.name
+        access_config {
+            nat_ip = element(google_compute_address.endpoint_static_ip.*.address, count.index)
+        }
+    }
+
+    service_account {
+        scopes = ["cloud-platform"]
+    }
+
+    metadata = {
+        ssh-keys = "endpoint${count.index}:${file("%s")}"
+    }
+    
+    scheduling {
+        on_host_maintenance = "TERMINATE"
+        automatic_restart = "false"
+        preemptible = "false"
+    }
+    
+    guest_accelerator {
+        count = "1"
+        type = "nvidia-tesla-t4-vws"
+    }
+}
+"""
+
 
 def generate_vm(config):
     """Write the Terraform config cloud VM configuration
@@ -286,12 +329,12 @@ def generate_vm(config):
                     "%s.pub" % (config["ssh_key"]),
                 )
             )
-
+    
     if config["infrastructure"]["endpoint_nodes"] > 0:
         with open(".tmp/endpoint_vm.tf", mode="w", encoding="utf-8") as f:
             f.write(ENDPOINT_IP % (config["infrastructure"]["endpoint_nodes"]))
             f.write(
-                ENDPOINT
+                (ENDPOINT_GPU if config["infrastructure"]["use_gpu_endpoint"] else ENDPOINT)
                 % (
                     config["infrastructure"]["gcp_endpoint"],
                     config["infrastructure"]["endpoint_nodes"],

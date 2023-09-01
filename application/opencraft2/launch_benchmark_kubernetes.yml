@@ -1,0 +1,25 @@
+---
+- hosts: cloudcontroller
+  become: true
+  tasks:
+   - name: Create job file
+      template:
+        src: template_opencraft2.yml.j2
+        dest: /home/{{ username }}/job-template.yaml
+
+    - name: Create job directory
+      file:
+        path: /home/{{ username }}/jobs
+        state: directory
+
+    - name: Create job multiple times
+      shell: |
+        for i in `seq 1 {{ replicas }}`
+        do
+          cat "/home/{{ username }}/job-template.yaml" | sed "s/\%ITEM/$i/" \
+          > "/home/{{ username }}/jobs/job-$i.yaml"
+        done
+
+    - name: Launch jobs
+      command: >
+        kubectl apply -f "/home/{{ username }}/jobs"

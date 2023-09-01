@@ -112,7 +112,7 @@ def to_datetime(s):
 
 
 def baremetal(config, machines):
-    """Launch a mist computing deployment
+    """Launch a baremetal deployment
 
     Args:
         config (dict): Parsed configuration

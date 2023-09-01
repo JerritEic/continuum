@@ -69,6 +69,10 @@ def verify_options(parser, config):
     sec = "infrastructure"
     if len(config[sec]["gcp_credentials"]) > 0 and config[sec]["gcp_credentials"][-1] == "/":
         config[sec]["gcp_credentials"] = config[sec]["base_pgcp_credentialsth"][:-1]
+    
+    if config[sec]["use_gpu_endpoint"] and not config[sec]["endpoint_nodes"] > 0:
+        print("WARNING: use_gpu_endpoint will have no effect, no endpoint VMs requested!")
+    
 
 
 def set_ip_names(_config, machines, nodes_per_machine):
