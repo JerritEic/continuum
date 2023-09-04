@@ -139,6 +139,9 @@ def generate_network(config):
 
 ###################################################################################################
 
+# Custom image with GPU drivers and host display configured for NVIDIA container runtime
+GPU_IMAGE = "opencraft2/ubuntu2004-nvidia-gpu-docker-xorg-4"
+
 CLOUD_IP = """
 resource "google_compute_address" "cloud_static_ip" {
     name = "cloud${count.index}-static-ip"
@@ -165,6 +168,7 @@ resource "google_compute_instance" "cloud" {
     name         = "cloud${count.index}"
     machine_type = %s
     count        = %i
+    min_cpu_platform = "Intel Broadwell"
 
     boot_disk {
         initialize_params {
@@ -192,11 +196,56 @@ resource "google_compute_instance" "cloud" {
 }
 """
 
+CLOUD_GPU = """
+resource "google_compute_instance" "cloud" {
+    name         = "cloud${count.index}"
+    machine_type = %s
+    count        = %i
+    min_cpu_platform = "Intel Broadwell"
+
+    boot_disk {
+        initialize_params {
+            size  = "30"
+            type  = "pd-standard"
+            image = "${GPU_IMAGE}"
+        }
+    }
+
+    network_interface {
+        network    = google_compute_network.vpc_network.name
+        subnetwork = google_compute_subnetwork.subnetwork_cloud.name
+        access_config {
+            nat_ip = element(google_compute_address.cloud_static_ip.*.address, count.index)
+        }
+    }
+
+    service_account {
+        scopes = ["cloud-platform"]
+    }
+
+    metadata = {
+        ssh-keys = "cloud${count.index}:${file("%s")}"
+    }
+
+    scheduling {
+        on_host_maintenance = "TERMINATE"
+        automatic_restart = "false"
+        preemptible = "false"
+    }
+    
+    guest_accelerator {
+        count = "1"
+        type = "nvidia-tesla-t4-vws"
+    }
+}
+"""
+
 EDGE = """
 resource "google_compute_instance" "edge" {
     name         = "edge${count.index}"
     machine_type = %s
     count        = %i
+    min_cpu_platform = "Intel Broadwell"
 
     boot_disk {
         initialize_params {
@@ -229,6 +278,7 @@ resource "google_compute_instance" "endpoint" {
     name         = "endpoint${count.index}"
     machine_type = %s
     count        = %i
+    min_cpu_platform = "Intel Broadwell"
 
     boot_disk {
         initialize_params {
@@ -258,15 +308,16 @@ resource "google_compute_instance" "endpoint" {
 
 ENDPOINT_GPU = """
 resource "google_compute_instance" "endpoint" {
-    name         = "endpoint${count.index}"
-    machine_type = %s
-    count        = %i
+    name             = "endpoint${count.index}"
+    machine_type     = %s
+    count            = %i
+    min_cpu_platform = "Intel Broadwell"
 
     boot_disk {
         initialize_params {
             size  = "30"
             type  = "pd-standard"
-            image = "opencraft2/ubuntu2004-nvidia-gpu-docker-xorg-4"
+            image = "${GPU_IMAGE}"
         }
     }
 
@@ -310,7 +361,7 @@ def generate_vm(config):
         with open(".tmp/cloud_vm.tf", mode="w", encoding="utf-8") as f:
             f.write(CLOUD_IP % (config["infrastructure"]["cloud_nodes"]))
             f.write(
-                CLOUD
+                (CLOUD_GPU if config["infrastructure"]["use_gpu_cloud"] else CLOUD)
                 % (
                     config["infrastructure"]["gcp_cloud"],
                     config["infrastructure"]["cloud_nodes"],

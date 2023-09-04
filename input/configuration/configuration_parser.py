@@ -247,7 +247,8 @@ def parse_infrastructure(parser, input_config, config):
         ["cloud_nodes", int, lambda x: x >= 0, False, 0],
         ["edge_nodes", int, lambda x: x >= 0, False, 0],
         ["endpoint_nodes", int, lambda x: x >= 0, False, 0],
-        ["use_gpu_endpoint", bool, lambda x: x in [True, False], False, False ]
+        ["use_gpu_endpoint", bool, lambda x: x in [True, False], False, False ],
+        ["use_gpu_cloud", bool, lambda x: x in [True, False], False, False ]
     ]
 
     for s in settings:
@@ -467,6 +468,7 @@ def parse_benchmark(parser, input_config, config):
         ["application_endpoint_cpu", float, lambda x: x >= 0.001, False, ec],
         ["application_endpoint_memory", float, lambda x: x >= 0.001, False, em],
         ["applications_per_worker", int, lambda x: x >= 1, False, 1],
+        ["applications_per_endpoint", int, lambda x: x >= 1, False, 1],
         ["observability", bool, lambda x: x in [True, False], False, False],
     ]
     # TODO: Observability only works with Kubernetes / KubeControl at the moment

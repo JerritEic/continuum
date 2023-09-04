@@ -18,7 +18,9 @@ def set_container_location(config):
     source = "jerriteic/opencraft2"
     # Container applications
     config["images"] = {
-        "base": "%s:base" % (source)
+        "worker": "%s:headless" % (source),
+        "endpoint": "%s:base" % (source),
+        "combined": "%s:base" % (source),
     }
 
 def add_options(_config):
@@ -30,7 +32,7 @@ def add_options(_config):
     Returns:
         list(list()): Options to add
     """
-    settings = [["frequency", int, lambda x: x >= 1, True, None]]
+    settings = [["streamed_client_ratio", int, lambda x: x >= 0, True, 0]]
     return settings
 
 
@@ -49,8 +51,6 @@ def verify_options(parser, config):
         parser.error("ERROR: Application opencraft2 does not support kubecontrol")
     elif config["infrastructure"]["endpoint_nodes"] <= 0:
         parser.error("ERROR: Application opencraft2 requires at least 1 endpoint")
-    elif not config["infrastructure"]["use_gpu_endpoint"]:
-        parser.error("ERROR: Application opencraft2 requires use_gpu_endpoint")
     elif config["execution_model"]["model"] == "openfaas":
         parser.error("ERROR: Application opencraft2 does not support OpenFAAS")
 
@@ -67,41 +67,10 @@ def start_worker(config, machines):
         OR
         (list): Application variables
     """
-    #if config["benchmark"]["resource_manager"] == "mist":
-    #    return start_worker_mist(config, machines)
-    #if config["benchmark"]["resource_manager"] == "baremetal":
-    #    return start_worker_baremetal(config, machines)
+    # No additional work variables needed
+    return {}
 
-    return start_worker_kube(config, machines)
 
-def start_worker_kube(config, _machines):
-    """Set variables needed when launching the app on workers
-
-    Args:
-        config (dict): Parsed configuration
-        machines (list(Machine object)): List of machine objects representing physical machines
-
-    Returns:
-        (dict): Application variables
-    """
-    if config["mode"] == "cloud":
-        worker_apps = (
-            config["infrastructure"]["cloud_nodes"] - 1) * config["benchmark"][
-                "applications_per_worker"
-        ]
-    elif config["mode"] == "edge":
-        worker_apps = (
-            config["infrastructure"]["edge_nodes"] * config["benchmark"][
-                "applications_per_worker"]
-        )
-
-    app_vars = {
-        #"container_port": 1883,
-        #"mqtt_logs": True,
-        #"endpoint_connected": int(config["infrastructure"]["endpoint_nodes"] / worker_apps),
-        #"cpu_threads": max(1, int(config["benchmark"]["application_worker_cpu"])),
-    }
-    return app_vars
 
 def gather_worker_metrics(_machines, _config, worker_output, _starttime):
     """Gather metrics from cloud or edge workers for the opencraft2 app

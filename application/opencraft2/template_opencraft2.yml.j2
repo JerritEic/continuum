@@ -13,11 +13,14 @@ spec:
     ports:
       - containerPort: 7979
         name: game-port
+      - containerPort: 7980
+        name: deployment-port
     imagePullPolicy: Always
     resources:
       requests:
         memory: "{{ memory_req }}Mi"
         cpu: {{ cpu_req }}
+    command: ["./opencraft2.x86_64", "-localConfigJson","./localconfig.json","-logFile", "./logs/opencraft2_log.txt", "-profiler-enable", "-profiler-log-file", "./logs/profiler_out.raw"]
 
 ---
 apiVersion: v1
@@ -31,5 +34,9 @@ spec:
   ports:
   - name: server-service-port
     port: 7979
-    nodePort: 3000%ITEM
+    nodePort: 7979
     targetPort: game-port
+  - name: deployment-service-port
+    port: 7980
+    nodePort: 7980
+    targetPort: deployment-port

@@ -781,6 +781,8 @@ def get_worker_output(config, machines, container_names=None, get_description=Fa
     # TODO Mist doesn't use kubernetes -> remove from this file, to a mist.py file
     if config["benchmark"]["resource_manager"] in ["mist", "baremetal"]:
         return get_worker_output_mist(config, machines, container_names)
+    if config["module"]["application"] == "opencraft2":
+        return get_worker_output_opencraft2(config, machines, get_description)
 
     return get_worker_output_kube(config, machines, get_description)
 
@@ -894,6 +896,107 @@ def get_worker_output_kube(config, machines, get_description):
 
     return worker_output
 
+def get_worker_output_opencraft2(config, machines, get_description):
+    """Get the output of Opencraft 2 cloud worker
+
+    Args:
+        config (dict): Parsed configuration
+        machines (list(Machine object)): List of machine objects representing physical machines
+        get_description (bool): Also output an extensive description of all pod properties
+
+    Returns:
+        list(list(str)): Output of each container ran on the cloud / edge
+    """
+    logging.info("Gather output from Opencraft2 servers")
+
+    # Get list of pods
+    command = [
+        "kubectl",
+        "get",
+        "pods",
+        "-o=custom-columns=NAME:.metadata.name,STATUS:.status.phase",
+        "--sort-by=.spec.nodeName",
+    ]
+    output, error = machines[0].process(config, command, ssh=config["cloud_ssh"][0])[0]
+
+    if (error and not all("[CONTINUUM]" in l for l in error)) or not output:
+        logging.error("".join(error))
+        sys.exit()
+
+    # The first couple of lines may have custom prints
+    offset = 0
+    for offset, o in enumerate(output):
+        if "NAME" in o and "STATUS" in o:
+            break
+
+    # Gather commands to get logs
+    commands = []
+    for line in output[1 + offset :]:
+        # Some custom output may appear afterwards - ignore
+        if "CONTINUUM" in line:
+            break
+
+        container = line.split(" ")[0]
+
+        # Check if there is only 1 container per pod or multiple - requires different approach
+        # We treat every container as an entity - no matter if there are multiple in a pod
+        sub_pods_mode = False
+        sub_pods = 1
+        if (
+            "kube_deployment" in config["benchmark"]
+            and config["benchmark"]["kube_deployment"] == "container"
+        ):
+            # This deployment has all containers in 1 pod
+            # This requires special parsing
+            # There is only 1 line in "kubectl get pods", but you can get sub-output anyway
+
+            # Assume cloud mode
+            sub_pods_mode = True
+            sub_pods = (config["infrastructure"]["cloud_nodes"] - 1) * config["benchmark"][
+                "applications_per_worker"
+            ]
+
+        # Loop through every sub-container in the single pod
+        for i in range(1, sub_pods + 1):
+            # Sub-pods-mode requires the name of the container to be appended
+            if sub_pods_mode:
+                container_long = container + " empty-%i" % (i)
+            else:
+                container_long = container
+            
+            # TODO don't hardcode pod name
+            command = ["kubectl", "cp", "opencraft2-1:/usr/src/opencraft2/logs/", "./logs/%s/" % container_long, "-c", container_long]
+            commands.append(command)
+
+    # Append commands into 1 big command
+    big_command = '"'
+    for command in commands:
+        com = " ".join(command) + ";"
+        big_command += com
+        big_command += 'echo "DELIMITER01234";'
+
+    big_command += '"'
+
+    # Run big_command
+    output, errors = machines[0].process(
+        config, big_command, ssh=config["cloud_ssh"][0], shell=True
+    )[0]
+
+    # Check for errors
+    for error in errors:
+        if error:
+            logging.error("Kubectl cp failed:".join(error))
+    
+    # Retrieve log files from cloud controller
+    commands = ["scp", "-i", config["ssh_key"], "-r", "%s:/logs/" % config["cloud_ssh"][0], "./logs/"]
+    output, errors = machines[0].process(config, commands)
+
+    # Check for errors
+    for error in errors:
+        if error:
+            logging.error("Retrieving logs from cloud controller failed:".join(error))
+    
+    return {}
 
 def get_worker_output_mist(config, machines, container_names):
     """Get the output of worker mist applications
