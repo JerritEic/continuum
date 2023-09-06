@@ -40,7 +40,7 @@ def start_endpoint(config, machines):
     """
     if config["benchmark"]["resource_manager"] == "baremetal":
         return start_endpoint_baremetal(config, machines)
-    if config["module"]["application"] == "opencraft2":
+    if config["benchmark"]["application"] == "opencraft2":
         return start_endpoint_opencraft2(config, machines)
 
     return start_endpoint_default(config, machines)
@@ -68,7 +68,7 @@ def start_endpoint_opencraft2(config, machines):
     worker_ips = config["cloud_ips_internal"]
     endpoints = config["endpoint_ssh"]
     per_endpoint = config["benchmark"]["applications_per_endpoint"]
-    image = "endpoint" 
+    image = "worker" 
 
 
     already_run = False
@@ -84,9 +84,12 @@ def start_endpoint_opencraft2(config, machines):
                 "-playType", "Client",
                 "-localConfigJson", "./localconfig.json",
                 "-serverUrl", "%s" % worker_ip,
+                "-serverPort", "7979",
+                "-deploymentPort", "7980",
                 "-logFile", "./logs/opencraft2_log.txt",
                 "-profiler-enable",
-                "-profiler-log-file", "./logs/profiler_out.raw"
+                "-profiler-log-file", "./logs/profiler_out.raw",
+                "-duration", "%s" % config["benchmark"]["experiment_duration"]
             ]
         
         for endpoint_i, endpoint_ssh in enumerate(endpoints):
@@ -94,7 +97,7 @@ def start_endpoint_opencraft2(config, machines):
                 # Name container
                 cont_name = "endpoint%i" % (endpoint_i * container_id)
                 # Setup additional environment variables
-                env = "LOCAL_IP=%s" % (endpoint_ssh.split("@")[1])
+                env = ["LOCAL_IP=%s" % (endpoint_ssh.split("@")[1])]
                 #env.append("MQTT_REMOTE_IP=%s" % (worker_ip))
 
                 if config["control_ips"]:
@@ -111,6 +114,7 @@ def start_endpoint_opencraft2(config, machines):
                         "--cpus=%i" % (config["benchmark"]["application_endpoint_cpu"]),
                         "--memory=%ig" % (config["benchmark"]["application_endpoint_memory"]),
                         "--network=host",
+                        "-v", "./logs/%s:/opencraft2/logs/" % cont_name
                     ]
                 
                 # Add GPU handling on hardware with accelerator
@@ -395,7 +399,8 @@ def wait_endpoint_completion(config, machines, sshs, container_names):
             # Check status
             if parsed[1] == "Up":
                 time.sleep(5)
-            elif parsed[1] == "Exited" and parsed[2] == "(0)":
+            elif parsed[1] == "Exited" and (parsed[2] == "(0)" or parsed[2] == "(139)" ):
+                # Workaround for Opencraft2: accept segfault as a valid exit condition
                 finished = True
             else:
                 logging.error(
@@ -421,7 +426,7 @@ def get_endpoint_output(config, machines, container_names, use_ssh=True):
         list(list(str)): Output of each endpoint container
     """
 
-    if config["module"]["application"] == "opencraft2":
+    if config["benchmark"]["application"] == "opencraft2":
         return get_endpoint_output_opencraft2(config, machines, container_names, use_ssh)
     
     logging.info("Extract output from endpoint publishers")
@@ -468,18 +473,9 @@ def get_endpoint_output_opencraft2(config, machines, container_names, use_ssh=Tr
     """
     logging.info("Extract output from Opencraft2 clients")
 
-    # Copy out log files from all containers on all endpoints
-    commands = [["docker", "cp", "%s:/usr/src/opencraft2/logs/" % cont_name, "./logs/%s/" % cont_name] for cont_name in container_names]
-    ssh_entry = config["endpoint_ssh"]
-    results = machines[0].process(config, commands, ssh=ssh_entry)
-
-    # Check for Docker errors
-    for (output, error) in results:
-        if error:
-            logging.error("Docker cp in endpoint failed:".join(error))
-
     # Retrieve log files from all endpoints
-    commands = [["scp", "-i", config["ssh_key"], "-r", "%s:/logs/" % ssh, "./logs/"] for ssh in ssh_entry]
+    ssh_entry = config["endpoint_ssh"]
+    commands = [["scp", "-r", "-i", config["ssh_key"], "-r", "%s:~/logs/" % ssh, "./results/"] for ssh in ssh_entry]
     results = machines[0].process(config, commands)
 
     # Check for scp errors

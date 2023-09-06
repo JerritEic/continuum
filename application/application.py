@@ -242,7 +242,8 @@ def kube(config, machines):
 
     # Start the worker
     app_vars = config["module"]["application"].start_worker(config, machines)
-    kubernetes.start_worker(config, machines, app_vars)
+    starttime, status = kubernetes.start_worker(config, machines, app_vars)
+    logging.info("Workers started at %s with status %s", starttime, status)
 
     # Start the endpoint
     container_names = endpoint.start_endpoint(config, machines)

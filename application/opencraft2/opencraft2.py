@@ -16,11 +16,9 @@ def set_container_location(config):
         config (dict): Parsed configuration
     """
     source = "jerriteic/opencraft2"
-    # Container applications
+    # Container application, we use 1 image for everything
     config["images"] = {
-        "worker": "%s:headless" % (source),
-        "endpoint": "%s:base" % (source),
-        "combined": "%s:base" % (source),
+        "worker": "%s:base" % (source)
     }
 
 def add_options(_config):
@@ -32,7 +30,8 @@ def add_options(_config):
     Returns:
         list(list()): Options to add
     """
-    settings = [["streamed_client_ratio", int, lambda x: x >= 0, True, 0]]
+    settings = [["streamed_client_ratio", int, lambda x: x >= 0, True, 0],
+                ["experiment_duration", int, lambda x: x >= 0, True, 60]]
     return settings
 
 
@@ -51,7 +50,7 @@ def verify_options(parser, config):
         parser.error("ERROR: Application opencraft2 does not support kubecontrol")
     elif config["infrastructure"]["endpoint_nodes"] <= 0:
         parser.error("ERROR: Application opencraft2 requires at least 1 endpoint")
-    elif config["execution_model"]["model"] == "openfaas":
+    elif "execution_model" in config and config["execution_model"]["model"] == "openfaas":
         parser.error("ERROR: Application opencraft2 does not support OpenFAAS")
 
 
@@ -67,8 +66,11 @@ def start_worker(config, machines):
         OR
         (list): Application variables
     """
-    # No additional work variables needed
-    return {}
+    app_vars = {
+        # "experiment_duration": int(config["benchmark"]["experiment_duration"]),
+        "experiment_duration": 300,
+    }
+    return app_vars
 
 
 

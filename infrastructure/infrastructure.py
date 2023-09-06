@@ -546,10 +546,14 @@ def docker_pull(config, machines, base_names):
                     images.append(config["images"]["worker"].split(":")[1])
                 elif "endpoint" in name:
                     # Load endpoint and combined applications
-                    images.append(config["images"]["endpoint"].split(":")[1])
+                    if "endpoint" in config["images"]:
+                        images.append(config["images"]["endpoint"].split(":")[1])
 
-                    if "combined" in config["images"]:
+                    elif "combined" in config["images"]:
                         images.append(config["images"]["combined"].split(":")[1])
+                    
+                    else:
+                        images.append(config["images"]["worker"].split(":")[1])
 
                 for image in images:
                     command = [

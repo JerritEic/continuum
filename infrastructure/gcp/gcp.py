@@ -72,6 +72,9 @@ def verify_options(parser, config):
     
     if config[sec]["use_gpu_endpoint"] and not config[sec]["endpoint_nodes"] > 0:
         print("WARNING: use_gpu_endpoint will have no effect, no endpoint VMs requested!")
+
+    if config[sec]["use_gpu_cloud"] and not config[sec]["cloud_nodes"] > 0:
+        print("WARNING: use_gpu_cloud will have no effect, no cloud VMs requested!")
     
 
 
@@ -491,13 +494,17 @@ def base_install(config, machines):
             commands.append(command)
 
         if any("endpoint" in base_name for base_name in machines[0].base_names):
+            yml_path = ".continuum/endpoint/base_install_no_docker.yml"
+            if config["benchmark"]["install_docker_endpoint"]:
+                yml_path = ".continuum/endpoint/base_install.yml"
+            
             command = [
                 "ansible-playbook",
                 "-i",
                 os.path.join(config["infrastructure"]["base_path"], ".continuum/inventory_vms"),
                 os.path.join(
                     config["infrastructure"]["base_path"],
-                    ".continuum/endpoint/base_install.yml",
+                    yml_path,
                 ),
             ]
             commands.append(command)

@@ -15,20 +15,9 @@
           - gnupg-agent
           - software-properties-common
 
-    - name: Install docker
-      apt:
-        name: docker.io
-        state: present
-
-    - name: Add cloud user to docker group
-      user:
-        name: "{{ username }}"
-        groups: docker
-        append: true
-
     - name: Allow HTTP pulling from private docker registry
       shell: echo '{ "insecure-registries":["{{ registry_ip }}"] }' > /etc/docker/daemon.json
-
+      
     - name: Setup Docker NVIDIA container runtime
       shell: nvidia-ctk runtime configure --runtime=docker
       ignore_errors: true

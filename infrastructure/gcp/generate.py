@@ -140,7 +140,7 @@ def generate_network(config):
 ###################################################################################################
 
 # Custom image with GPU drivers and host display configured for NVIDIA container runtime
-GPU_IMAGE = "opencraft2/ubuntu2004-nvidia-gpu-docker-xorg-4"
+GPU_IMAGE = "opencraft2/ubuntu2004-nvidia-gpu-docker-xorg-5"
 
 CLOUD_IP = """
 resource "google_compute_address" "cloud_static_ip" {
@@ -168,7 +168,6 @@ resource "google_compute_instance" "cloud" {
     name         = "cloud${count.index}"
     machine_type = %s
     count        = %i
-    min_cpu_platform = "Intel Broadwell"
 
     boot_disk {
         initialize_params {
@@ -201,13 +200,12 @@ resource "google_compute_instance" "cloud" {
     name         = "cloud${count.index}"
     machine_type = %s
     count        = %i
-    min_cpu_platform = "Intel Broadwell"
 
     boot_disk {
         initialize_params {
             size  = "30"
             type  = "pd-standard"
-            image = "${GPU_IMAGE}"
+            image = """ + "\"" +GPU_IMAGE + "\"" +"""
         }
     }
 
@@ -245,7 +243,6 @@ resource "google_compute_instance" "edge" {
     name         = "edge${count.index}"
     machine_type = %s
     count        = %i
-    min_cpu_platform = "Intel Broadwell"
 
     boot_disk {
         initialize_params {
@@ -278,7 +275,6 @@ resource "google_compute_instance" "endpoint" {
     name         = "endpoint${count.index}"
     machine_type = %s
     count        = %i
-    min_cpu_platform = "Intel Broadwell"
 
     boot_disk {
         initialize_params {
@@ -311,13 +307,12 @@ resource "google_compute_instance" "endpoint" {
     name             = "endpoint${count.index}"
     machine_type     = %s
     count            = %i
-    min_cpu_platform = "Intel Broadwell"
 
     boot_disk {
         initialize_params {
             size  = "30"
             type  = "pd-standard"
-            image = "${GPU_IMAGE}"
+            image = """ + "\"" +GPU_IMAGE + "\"" +"""
         }
     }
 

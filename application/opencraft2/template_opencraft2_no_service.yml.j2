@@ -30,21 +30,3 @@ spec:
       # directory location on host
       path: /logs
       type: DirectoryOrCreate
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: {{ app_name }}-service-%ITEM
-spec:
-  type: NodePort
-  selector:
-    app.kubernetes.io/name: {{ app_name }}-%ITEM
-  ports:
-  - name: server-service-port
-    port: 7979
-    nodePort: 30079
-    targetPort: game-port
-  - name: deployment-service-port
-    port: 7980
-    nodePort: 30080
-    targetPort: deployment-port

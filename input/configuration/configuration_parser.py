@@ -435,7 +435,8 @@ def parse_benchmark(parser, input_config, config):
         # Option | Type | Condition | Mandatory | Default
         ["resource_manager", str, lambda x: x in rms, True, None],
         ["resource_manager_only", bool, lambda x: x in [True, False], False, None],
-        ["docker_pull", bool, lambda x: x in [True, False], False, None],
+        ["install_docker_endpoint", bool, lambda x: x in [True, False], False, True],
+        ["docker_pull", bool, lambda x: x in [True, False], False, False],
         ["application", str, lambda x: x in apps, False, None],
     ]
 
