@@ -85,12 +85,7 @@ resource "google_compute_firewall" "allow_all_ingress" {
     direction = "INGRESS"
 
     allow {
-        protocol = "icmp"
-    }
-
-    allow {
-        protocol = "tcp"
-        ports    = ["0-65535"]
+        protocol = "all"
     }
 
     source_ranges = ["0.0.0.0/0"]
@@ -104,12 +99,7 @@ resource "google_compute_firewall" "allow_all_egress" {
     direction = "EGRESS"
 
     allow {
-        protocol = "icmp"
-    }
-
-    allow {
-        protocol = "tcp"
-        ports    = ["0-65535"]
+        protocol = "all"
     }
 }
 """
@@ -171,7 +161,7 @@ resource "google_compute_instance" "cloud" {
 
     boot_disk {
         initialize_params {
-            size  = "30"
+            size  = "35"
             type  = "pd-standard"
             image = "ubuntu-os-cloud/ubuntu-2004-lts"
         }
@@ -192,6 +182,8 @@ resource "google_compute_instance" "cloud" {
     metadata = {
         ssh-keys = "cloud${count.index}:${file("%s")}"
     }
+
+    can_ip_forward = true
 }
 """
 
@@ -203,7 +195,7 @@ resource "google_compute_instance" "cloud" {
 
     boot_disk {
         initialize_params {
-            size  = "30"
+            size  = "35"
             type  = "pd-standard"
             image = """ + "\"" +GPU_IMAGE + "\"" +"""
         }
@@ -235,6 +227,8 @@ resource "google_compute_instance" "cloud" {
         count = "1"
         type = "nvidia-tesla-t4-vws"
     }
+
+    can_ip_forward = true
 }
 """
 
@@ -278,7 +272,7 @@ resource "google_compute_instance" "endpoint" {
 
     boot_disk {
         initialize_params {
-            size  = "30"
+            size  = "35"
             type  = "pd-standard"
             image = "ubuntu-os-cloud/ubuntu-2004-lts"
         }
@@ -299,6 +293,8 @@ resource "google_compute_instance" "endpoint" {
     metadata = {
         ssh-keys = "endpoint${count.index}:${file("%s")}"
     }
+
+    can_ip_forward = true
 }
 """
 
@@ -310,7 +306,7 @@ resource "google_compute_instance" "endpoint" {
 
     boot_disk {
         initialize_params {
-            size  = "30"
+            size  = "35"
             type  = "pd-standard"
             image = """ + "\"" +GPU_IMAGE + "\"" +"""
         }
@@ -342,6 +338,8 @@ resource "google_compute_instance" "endpoint" {
         count = "1"
         type = "nvidia-tesla-t4-vws"
     }
+
+    can_ip_forward = true
 }
 """
 

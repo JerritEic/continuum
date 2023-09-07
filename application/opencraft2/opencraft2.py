@@ -67,8 +67,7 @@ def start_worker(config, machines):
         (list): Application variables
     """
     app_vars = {
-        # "experiment_duration": int(config["benchmark"]["experiment_duration"]),
-        "experiment_duration": 300,
+         "experiment_duration": int(config["benchmark"]["experiment_duration"]),
     }
     return app_vars
 
