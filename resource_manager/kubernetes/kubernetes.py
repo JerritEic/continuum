@@ -909,7 +909,7 @@ def get_worker_output_opencraft2(config, machines, get_description):
         list(list(str)): Output of each container ran on the cloud / edge
     """
     logging.info("Gather output from Opencraft2 servers")
-    commands = [["scp", "-r", "-i", config["ssh_key"], "-r", "%s:/logs/" % ssh, "./results/"] for ssh in config["cloud_ssh"][1:]]
+    commands = [["scp", "-r", "-i", config["ssh_key"], "-r", "%s:/logs/*" % ssh, "./results/"] for ssh in config["cloud_ssh"][1:]]
     results = machines[0].process(config, commands)
 
     # Check for errors

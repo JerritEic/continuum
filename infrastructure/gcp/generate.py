@@ -161,7 +161,7 @@ resource "google_compute_instance" "cloud" {
 
     boot_disk {
         initialize_params {
-            size  = "35"
+            size  = "50"
             type  = "pd-standard"
             image = "ubuntu-os-cloud/ubuntu-2004-lts"
         }
@@ -195,7 +195,7 @@ resource "google_compute_instance" "cloud" {
 
     boot_disk {
         initialize_params {
-            size  = "35"
+            size  = "50"
             type  = "pd-standard"
             image = """ + "\"" +GPU_IMAGE + "\"" +"""
         }
@@ -272,7 +272,7 @@ resource "google_compute_instance" "endpoint" {
 
     boot_disk {
         initialize_params {
-            size  = "35"
+            size  = "50"
             type  = "pd-standard"
             image = "ubuntu-os-cloud/ubuntu-2004-lts"
         }
@@ -306,7 +306,7 @@ resource "google_compute_instance" "endpoint" {
 
     boot_disk {
         initialize_params {
-            size  = "35"
+            size  = "50"
             type  = "pd-standard"
             image = """ + "\"" +GPU_IMAGE + "\"" +"""
         }

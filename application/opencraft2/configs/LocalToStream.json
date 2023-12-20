@@ -1,0 +1,84 @@
+{
+"nodes":[
+	{
+		"nodeID":0,
+		"nodeIP":"",
+		"worldConfigs":[
+			{
+			"worldName": "GameServer",
+			"worldType":"Server",
+			"initializationMode":"Connect",
+			"multiplayStreamingRoles":"Disabled",
+			"serverNodeID":0,
+			"streamingNodeID":-1,
+			"numThinClients":0,
+			"services":[],
+			"serviceFilterType":"Includes"
+			}
+		]
+	},
+	{
+		"nodeID":1,
+		"nodeIP":"",
+		"worldConfigs":[
+			{
+			"worldName": "GameClient",
+			"worldType":"Client",
+			"initializationMode":"Connect",
+			"multiplayStreamingRoles":"Disabled",
+			"serverNodeID":0,
+			"streamingNodeID":-1,
+			"numThinClients":0,
+			"services":[],
+			"serviceFilterType":"Includes"
+			},
+			{
+			"worldName": "StreamedClient",
+			"worldType":"Client",
+			"initializationMode":"Create",
+			"multiplayStreamingRoles":"Guest",
+			"serverNodeID":-1,
+			"streamingNodeID":2,
+			"numThinClients":0,
+			"services":[],
+			"serviceFilterType":"Includes"
+			}
+		]
+	},
+	{
+		"nodeID":2,
+		"nodeIP":"",
+		"worldConfigs":[
+			{
+			"worldName": "CloudHostClient",
+			"worldType":"Client",
+			"initializationMode":"Start",
+			"multiplayStreamingRoles":"CloudHost",
+			"serverNodeID":0,
+			"streamingNodeID":2,
+			"numThinClients":0,
+			"services":[],
+			"serviceFilterType":"Includes"
+			}
+		]
+	}
+], 
+"experimentActions":[
+	{
+		"delay": 120,
+		"actions": [
+			{
+				"nodeID": 1,
+				"worldNames": ["GameClient", "StreamedClient"],
+				"actions": ["Stop", "Connect"]
+			},
+			{
+				"nodeID": 2,
+				"worldNames": ["CloudHostClient"],
+				"actions": ["Connect"]
+			}
+		]
+	}
+]
+}
+	

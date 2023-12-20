@@ -30,8 +30,10 @@ def add_options(_config):
     Returns:
         list(list()): Options to add
     """
-    settings = [["streamed_client_ratio", int, lambda x: x >= 0, True, 0],
-                ["experiment_duration", int, lambda x: x >= 0, True, 60]]
+    settings = [["streamed_client_ratio", float, lambda x: x >= 0.0, True, 0.0],
+                ["experiment_duration", int, lambda x: x >= 0, True, 60],
+                ["opencraft_endpoint_cpu", list, lambda x: True, False, []],
+                ["deployment_config", str, lambda _: True, True, ""],]
     return settings
 
 
@@ -68,6 +70,7 @@ def start_worker(config, machines):
     """
     app_vars = {
          "experiment_duration": int(config["benchmark"]["experiment_duration"]),
+         "deployment_config": str(config["benchmark"]["deployment_config"]),
     }
     return app_vars
 

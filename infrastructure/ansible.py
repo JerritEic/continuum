@@ -386,16 +386,26 @@ def copy(config, machines):
         )
         d = dest + "launch_benchmark.yml"
         out.append(machines[0].copy_files(config, path, d))
-
-        # copy opencraft2 template file as well, it uses an extra template file
-        path = os.path.join(
-            config["base"],
-            "application",
-            config["benchmark"]["application"],
-            "template_opencraft2.yml.j2",
-        )
-        d = dest + "template_opencraft2.yml.j2"
-        out.append(machines[0].copy_files(config, path, d))
+        
+        if config["benchmark"]["application"] == "opencraft2":
+            # copy opencraft2 template file as well, it uses an extra template file
+            path = os.path.join(
+                config["base"],
+                "application",
+                config["benchmark"]["application"],
+                "template_opencraft2_no_service.yml.j2",
+            )
+            d = dest + "template_opencraft2_no_service.yml.j2"
+            out.append(machines[0].copy_files(config, path, d))
+            # copy opencraft2 configuration directory
+            path = os.path.join(
+                config["base"],
+                "application",
+                config["benchmark"]["application"],
+                "configs/",
+            )
+            d = dest + "configs/"
+            out.append(machines[0].copy_files(config, path, d, True))
 
     # Copy playbooks for installing resource managers and execution_models
     if not config["infrastructure"]["infra_only"]:

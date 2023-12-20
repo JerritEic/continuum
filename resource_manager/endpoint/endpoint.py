@@ -68,8 +68,10 @@ def start_endpoint_opencraft2(config, machines):
     worker_ips = config["cloud_ips_internal"]
     endpoints = config["endpoint_ssh"]
     per_endpoint = config["benchmark"]["applications_per_endpoint"]
+    total_applications = config["infrastructure"]["endpoint_nodes"] * per_endpoint
     image = "worker" 
-
+    #stream_client_id_cutoff = int(per_endpoint * config["benchmark"]["streamed_client_ratio"])
+    stream_client_id_cutoff = total_applications - int(total_applications * config["benchmark"]["streamed_client_ratio"])
 
     already_run = False
     # Connect #endpoints x #applications per endpoint to the worker running the server
@@ -77,28 +79,50 @@ def start_endpoint_opencraft2(config, machines):
         if already_run:
             print("ERROR: Opencraft2 run with more than one worker! Ignoring all but the first.")
             break
-
-        # TODO - Use streamed_client_ratio parameter to set Multiplay parameters
-        CLIENT_CONTAINER_COMMAND = [
-                "./opencraft2.x86_64",
-                "-playType", "Client",
-                "-localConfigJson", "./localconfig.json",
-                "-serverUrl", "%s" % worker_ip,
-                "-serverPort", "30079",
-                "-deploymentPort", "30080",
-                "-logFile", "./logs/opencraft2_log.txt",
-                "-profiler-enable",
-                "-profiler-log-file", "./logs/profiler_out.raw",
-                "-duration", "%s" % config["benchmark"]["experiment_duration"]
-            ]
-        
+    
         for endpoint_i, endpoint_ssh in enumerate(endpoints):
             for container_id in range(per_endpoint):
+
+                #is_stream_guest = container_id < stream_client_id_cutoff
+                is_stream_guest = False
+                """is_stream_guest = endpoint_i >= stream_client_id_cutoff
+                if is_stream_guest:
+                    # Always connect streamed guests to other hardware nodes so network emulation has an effect
+                    signaling_ip = endpoints[stream_client_id_cutoff - endpoint_i].split('@')[1]
+                    #signaling_port = min(7981 + stream_client_id_cutoff + container_id, 7984)
+                    #signaling_port = 7981
+                    switchToStreamDuration = config['benchmark']['switch_streamed_duration']
+                    # WEBSERVER_COMMAND = "echo STREAMED_GUEST"
+                else:
+                    #signaling_port = 7981 + container_id
+                    #signaling_port = 7981
+                    signaling_ip  = "127.0.0.1" # or endpoint_ssh.split('@')[1]
+                    switchToStreamDuration = 0"""
+                switchToStreamDuration = 0
+                signaling_ip = "127.0.0.1" if endpoint_i == 1 else endpoints[1].split('@')[1]
+                WEBSERVER_COMMAND = f"./server -p 7981"
+
+                OPENCRAFT_COMMAND = f"./opencraft2.x86_64 -playType Client \
+                    -deploymentID {endpoint_i + 1} -remoteConfig -deploymentURL {worker_ip} \
+                    -multiplayRole {'Guest' if is_stream_guest else 'Host'} \
+                    -switchToStream {switchToStreamDuration} \
+                    -emulationType Playback \
+                    -emulationFile ./input_recordings/42_recording5.inputtrace \
+                    -screen-fullscreen 0 -screen-width 1920 -screen-height 1080 \
+                    -serverUrl {worker_ip} -serverPort 7979 -deploymentPort 7980 \
+                    -signalingUrl ws://{signaling_ip}:7981 \
+                    -logFile ./logs/opencraft2_log.txt \
+                    -profiler-enable \
+                    -logStats -statsFile ./logs/stats.csv \
+                    -duration {config['benchmark']['experiment_duration']}"
+
+                
+                CLIENT_CONTAINER_COMMAND = ["sh", "-c"]+[" \'" +WEBSERVER_COMMAND + " & ws_pid=$! ; " + OPENCRAFT_COMMAND + " ; kill $ws_pid \'"]
+
                 # Name container
-                cont_name = "endpoint%i" % (endpoint_i * container_id)
+                cont_name = f"{'streamedclient' if is_stream_guest else 'client'}-{endpoint_i}-{container_id}"
                 # Setup additional environment variables
                 env = ["LOCAL_IP=%s" % (endpoint_ssh.split("@")[1])]
-                #env.append("MQTT_REMOTE_IP=%s" % (worker_ip))
 
                 if config["control_ips"]:
                     env.append("CLOUD_CONTROLLER_IP=%s" % (config["control_ips"][0]))
@@ -111,9 +135,10 @@ def start_endpoint_opencraft2(config, machines):
                         "container",
                         "run",
                         "--detach",
-                        "--cpus=%i" % (config["benchmark"]["application_endpoint_cpu"]),
+                        "--cpus=%i" % float((config["benchmark"]["opencraft_endpoint_cpu"][endpoint_i])),
                         "--memory=%ig" % (config["benchmark"]["application_endpoint_memory"]),
                         "--network=host",
+                        #f"-p {signaling_port}:{signaling_port}/udp",
                         "-v", "./logs/%s:/opencraft2/logs/" % cont_name
                     ]
                 
@@ -155,7 +180,7 @@ def start_endpoint_opencraft2(config, machines):
 
         if error and "Your kernel does not support swap limit capabilities" not in error[0]:
             logging.error("".join(error))
-            sys.exit()
+            #sys.exit() dont hard exit on error
         elif not output:
             logging.error("No output from docker container")
             sys.exit()
@@ -355,6 +380,9 @@ def wait_endpoint_completion(config, machines, sshs, container_names):
         sshs (list(str)): SSH addresses to edge or endpoint VMs
         container_names (list(str)): Names of docker containers launched
     """
+    if config["benchmark"]["application"] == "opencraft2":
+        return wait_endpoint_completion_opencraft2(config, machines, sshs, container_names)
+    
     logging.info("Wait on all endpoint or mist containers to finish")
     time.sleep(10)
 
@@ -399,7 +427,7 @@ def wait_endpoint_completion(config, machines, sshs, container_names):
             # Check status
             if parsed[1] == "Up":
                 time.sleep(5)
-            elif parsed[1] == "Exited" and (parsed[2] == "(0)" or parsed[2] == "(139)" ):
+            elif parsed[1] == "Exited" and (parsed[2] == "(0)" or parsed[2] == "(139)"or parsed[2] == "(1)" ):
                 # Workaround for Opencraft2: accept segfault as a valid exit condition
                 finished = True
             else:
@@ -409,9 +437,62 @@ def wait_endpoint_completion(config, machines, sshs, container_names):
                     ssh.split("@")[0],
                     status_line,
                 )
-                sys.exit()
+                #sys.exit() dont hard exit on failure
 
     logging.info("All endpoint or mist containers have finished")
+
+def wait_endpoint_completion_opencraft2(config, machines, sshs, container_names):
+    """Wait for all containers to be finished running the benchmark on endpoints
+    OR for all mist containers, which also use docker so this function can be reused
+
+    Args:
+        config (dict): Parsed configuration
+        machines (list(Machine object)): List of machine objects representing physical machines
+        sshs (list(str)): SSH addresses to edge or endpoint VMs
+        container_names (list(str)): Names of docker containers launched
+    """
+    logging.info("Wait on all Opencraft2 clients to finish")
+    time.sleep(10)
+
+    unfinished = set(container_names)
+
+    while unfinished:
+        for ssh in sshs:
+            command = 'docker container ls -a --format \\"{{.ID}}: {{.Status}} {{.Names}}\\"'
+            output, error = machines[0].process(config, command, shell=True, ssh=ssh)[0]
+            if error:
+                logging.error("".join(error))
+                sys.exit()
+            elif not output:
+                logging.error("No output from docker container")
+                sys.exit()
+            
+            # Get status of docker container
+            status_line = None
+            for line in output:
+                # Check for unfinished containers
+                finished = set()
+                for cont_name in unfinished:
+                    if cont_name in line:
+                        parsed = line.rstrip().split(" ")
+                        # Check status
+                        if parsed[1] == "Up":
+                            continue
+                        elif parsed[1] == "Exited" and (parsed[2] == "(0)" or parsed[2] == "(139)"or parsed[2] == "(1)" ):
+                            # Workaround for Opencraft2: accept segfault as a valid exit condition
+                            finished.add(cont_name)
+                        else:
+                            logging.error(
+                                'ERROR: Container %s failed in VM %s with status "%s"',
+                                cont_name,
+                                ssh.split("@")[0],
+                                status_line,
+                            )
+                            finished.add(cont_name)
+                unfinished -= finished
+        time.sleep(5)
+
+    logging.info("All Opencraft2 clients have finished")
 
 
 def get_endpoint_output(config, machines, container_names, use_ssh=True):
@@ -475,7 +556,7 @@ def get_endpoint_output_opencraft2(config, machines, container_names, use_ssh=Tr
 
     # Retrieve log files from all endpoints
     ssh_entry = config["endpoint_ssh"]
-    commands = [["scp", "-r", "-i", config["ssh_key"], "-r", "%s:~/logs/" % ssh, "./results/"] for ssh in ssh_entry]
+    commands = [["scp", "-r", "-i", config["ssh_key"], "%s:~/logs" % ssh, "./results/"] for ssh in ssh_entry]
     results = machines[0].process(config, commands)
 
     # Check for scp errors

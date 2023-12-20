@@ -7,14 +7,17 @@ metadata:
     applicationRunning: 'opencraft2'
 spec:
   restartPolicy: Never # important so that server can be stopped without making K8 recreate the pod
+  hostNetwork: true
   containers:
   - name: {{ app_name }}
     image: {{ image }}
     ports:
       - containerPort: 7979
         name: game-port
+        protocol: UDP
       - containerPort: 7980
         name: deployment-port
+        protocol: UDP
     imagePullPolicy: Always
     volumeMounts:
     - mountPath: /opencraft2/logs
@@ -43,8 +46,10 @@ spec:
   - name: server-service-port
     port: 7979
     nodePort: 30079
+    protocol: UDP
     targetPort: game-port
   - name: deployment-service-port
     port: 7980
     nodePort: 30080
+    protocol: UDP
     targetPort: deployment-port

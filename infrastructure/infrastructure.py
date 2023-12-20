@@ -282,8 +282,9 @@ rm -rf %s/.continuum/edge && \
 rm -rf %s/.continuum/endpoint && \
 rm -rf %s/.continuum/execution_model && \
 rm -rf %s/.continuum/infrastructure && \
+rm -rf %s/.continuum/configs && \
 find %s/.continuum -maxdepth 1 -type f -delete""" % (
-                (config["infrastructure"]["base_path"],) * 9
+                (config["infrastructure"]["base_path"],) * 10
             )
         else:
             command = """\
@@ -293,8 +294,9 @@ rm -rf %s/.continuum/edge && \
 rm -rf %s/.continuum/endpoint && \
 rm -rf %s/.continuum/execution_model && \
 rm -rf %s/.continuum/infrastructure && \
+rm -rf %s/.continuum/configs && \
 find %s/.continuum -maxdepth 1 -type f -delete\"""" % (
-                (machine.name,) + (config["infrastructure"]["base_path"],) * 6
+                (machine.name,) + (config["infrastructure"]["base_path"],) * 7
             )
 
         commands.append(command)

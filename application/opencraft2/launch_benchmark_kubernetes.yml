@@ -4,7 +4,7 @@
   tasks:
     - name: Create job file
       template:
-        src: template_opencraft2.yml.j2
+        src: template_opencraft2_no_service.yml.j2
         dest: /home/{{ username }}/job-template.yaml
 
     - name: Create job directory
@@ -19,6 +19,15 @@
           cat "/home/{{ username }}/job-template.yaml" | sed "s/\%ITEM/$i/" \
           > "/home/{{ username }}/jobs/job-$i.yaml"
         done
+
+    - name: Create config folder
+      ansible.builtin.copy:
+        src: configs/
+        dest: /home/{{ username }}/configs/
+
+    - name: Create Opencraft2 ConfigMap
+      command: >
+        kubectl create configmap opencraft2-config --from-file=/home/{{ username }}/configs
 
     - name: Launch jobs
       command: >

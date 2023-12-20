@@ -6,7 +6,7 @@ import logging
 import sys
 
 
-def generate_tc_commands(config, values, ips, disk):
+def generate_tc_commands(config, values, ips, disk, is_endpoint = False):
     """Generate TC commands
 
     Args:
@@ -25,6 +25,8 @@ def generate_tc_commands(config, values, ips, disk):
     network = "ens2"
     if config["infrastructure"]["provider"] == "gcp":
         network = "ens4"
+    if is_endpoint:
+        network = "ens5"
 
     commands = []
 
@@ -128,6 +130,7 @@ def tc_values(config):
     # Default values
     cloud = [0, 0, 1000]  # Between cloud nodes (wired)
     edge = [7.5, 2.5, 1000]  # Between edge nodes (wired)
+    endpoint = [7.5, 2.5, 1000]  # Between edge nodes (wired)
     cloud_edge = [7.5, 2.5, 1000]  # Between cloud and edge (wired)
 
     # Set values based on 4g/5g preset (if the user didn't set anything, 4g is default)
@@ -151,6 +154,12 @@ def tc_values(config):
         edge[1] = config["infrastructure"]["edge_latency_var"]
     if config["infrastructure"]["edge_throughput"] != -1:
         edge[2] = config["infrastructure"]["edge_throughput"]
+    if config["infrastructure"]["endpoint_latency_avg"] != -1:
+        endpoint[0] = config["infrastructure"]["endpoint_latency_avg"]
+    if config["infrastructure"]["endpoint_latency_var"] != -1:
+        endpoint[1] = config["infrastructure"]["endpoint_latency_var"]
+    if config["infrastructure"]["endpoint_throughput"] != -1:
+        endpoint[2] = config["infrastructure"]["endpoint_throughput"]
     if config["infrastructure"]["cloud_edge_latency_avg"] != -1:
         cloud_edge[0] = config["infrastructure"]["cloud_edge_latency_avg"]
     if config["infrastructure"]["cloud_edge_latency_var"] != -1:
@@ -170,7 +179,7 @@ def tc_values(config):
     if config["infrastructure"]["edge_endpoint_throughput"] != -1:
         edge_endpoint[2] = config["infrastructure"]["edge_endpoint_throughput"]
 
-    return cloud, edge, cloud_edge, cloud_endpoint, edge_endpoint
+    return cloud, edge, endpoint, cloud_edge, cloud_endpoint, edge_endpoint
 
 
 def start(config, machines):
@@ -181,7 +190,7 @@ def start(config, machines):
         machines (list(Machine object)): List of machine objects representing physical machines
     """
     logging.info("Add network latency between VMs")
-    cloud, edge, cloud_edge, cloud_endpoint, edge_endpoint = tc_values(config)
+    cloud, edge, endpoint, cloud_edge, cloud_endpoint, edge_endpoint = tc_values(config)
 
     commands = []
 
@@ -235,10 +244,16 @@ def start(config, machines):
 
         commands.append(command)
 
-    # For endpoint nodes (no endpoint->endpoint connection possible)
-    for _ in config["endpoint_ips_internal"]:
+    # For endpoint nodes
+    for ip in config["endpoint_ips_internal"]:
         command = []
         disk = 1
+
+        # Between endpoints
+        targets = list(set(config["endpoint_ips_internal"]) - set([ip]))
+        if targets:
+            command += generate_tc_commands(config, endpoint, targets, disk, is_endpoint=True)
+            disk += 1
 
         # Between endpoint and cloud nodes
         targets = config["control_ips_internal"] + config["cloud_ips_internal"]

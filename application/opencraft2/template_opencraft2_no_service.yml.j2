@@ -7,26 +7,35 @@ metadata:
     applicationRunning: 'opencraft2'
 spec:
   restartPolicy: Never # important so that server can be stopped without making K8 recreate the pod
+  hostNetwork: true
   containers:
   - name: {{ app_name }}
     image: {{ image }}
     ports:
       - containerPort: 7979
         name: game-port
+        protocol: UDP
       - containerPort: 7980
         name: deployment-port
+        protocol: UDP
     imagePullPolicy: Always
     volumeMounts:
-    - mountPath: /opencraft2/logs
-      name: logs-volume
+    - name: logs-volume
+      mountPath: /opencraft2/logs
+    - name: config-volume
+      mountPath: /opencraft2/config
     resources:
       requests:
         memory: "{{ memory_req }}Mi"
         cpu: {{ cpu_req }}
-    command: ["./opencraft2.x86_64", "-playType", "Server", "-nographics", "-batchmode", "-localConfigJson","./localconfig.json","-logFile", "./logs/opencraft2_log.txt", "-profiler-enable", "-profiler-log-file", "./logs/profiler_out.raw", "-duration", "{{ experiment_duration }}"]
+    command: ["./opencraft2.x86_64", "-playType", "Server", "-nographics", "-batchmode", "-localConfigJson","./localconfig.json","-logFile", "./logs/opencraft2_log.txt", "-profiler-enable", "-logStats", "-statsFile", "./logs/stats.csv","-deploymentID", "0", "-deploymentJson", "./config/{{ deployment_config }}", "-duration", "{{ experiment_duration }}"]
   volumes:
   - name: logs-volume
     hostPath:
       # directory location on host
-      path: /logs
+      path: /logs/{{ app_name }}-%ITEM
       type: DirectoryOrCreate
+  - name: config-volume
+    configMap:
+      # per-worker configuration files
+      name: opencraft2-config
