@@ -378,6 +378,9 @@ def copy(config, machines):
         if "kube_deployment" in config["benchmark"]:
             suffix += "_%s" % (config["benchmark"]["kube_deployment"])
 
+        if config["benchmark"]["application"] == "opencraft2" and config["benchmark"]["opencraft_server_baremetal"]:
+            suffix = "baremetal"
+        
         path = os.path.join(
             config["base"],
             "application",

@@ -64,14 +64,18 @@ def start_endpoint_opencraft2(config, machines):
     commands = []
     sshs = []
     container_names = []
-
+    
     worker_ips = config["cloud_ips_internal"]
+    if config["benchmark"]["opencraft_server_baremetal"]:
+        print(f"Baremetal flag provided, setting worker ip to {machines[0].cloud_controller_ips_internal[0]}")
+        worker_ips = [machines[0].cloud_controller_ips_internal[0]]
     endpoints = config["endpoint_ssh"]
     per_endpoint = config["benchmark"]["applications_per_endpoint"]
     total_applications = config["infrastructure"]["endpoint_nodes"] * per_endpoint
-    image = "worker" 
+    image = "endpoint" 
     #stream_client_id_cutoff = int(per_endpoint * config["benchmark"]["streamed_client_ratio"])
-    stream_client_id_cutoff = total_applications - int(total_applications * config["benchmark"]["streamed_client_ratio"])
+    stream_client_id_cutoff = total_applications - int(total_applications * config["benchmark"]["opencraft_streamed_client_ratio"])
+    using_streaming = stream_client_id_cutoff < total_applications 
 
     already_run = False
     # Connect #endpoints x #applications per endpoint to the worker running the server
@@ -82,40 +86,54 @@ def start_endpoint_opencraft2(config, machines):
     
         for endpoint_i, endpoint_ssh in enumerate(endpoints):
             for container_id in range(per_endpoint):
-
-                #is_stream_guest = container_id < stream_client_id_cutoff
-                is_stream_guest = False
-                """is_stream_guest = endpoint_i >= stream_client_id_cutoff
-                if is_stream_guest:
-                    # Always connect streamed guests to other hardware nodes so network emulation has an effect
-                    signaling_ip = endpoints[stream_client_id_cutoff - endpoint_i].split('@')[1]
-                    #signaling_port = min(7981 + stream_client_id_cutoff + container_id, 7984)
-                    #signaling_port = 7981
-                    switchToStreamDuration = config['benchmark']['switch_streamed_duration']
-                    # WEBSERVER_COMMAND = "echo STREAMED_GUEST"
-                else:
-                    #signaling_port = 7981 + container_id
-                    #signaling_port = 7981
-                    signaling_ip  = "127.0.0.1" # or endpoint_ssh.split('@')[1]
-                    switchToStreamDuration = 0"""
-                switchToStreamDuration = 0
-                signaling_ip = "127.0.0.1" if endpoint_i == 1 else endpoints[1].split('@')[1]
-                WEBSERVER_COMMAND = f"./server -p 7981"
-
-                OPENCRAFT_COMMAND = f"./opencraft2.x86_64 -playType Client \
-                    -deploymentID {endpoint_i + 1} -remoteConfig -deploymentURL {worker_ip} \
-                    -multiplayRole {'Guest' if is_stream_guest else 'Host'} \
-                    -switchToStream {switchToStreamDuration} \
-                    -emulationType Playback \
-                    -emulationFile ./input_recordings/42_recording5.inputtrace \
-                    -screen-fullscreen 0 -screen-width 1920 -screen-height 1080 \
+                # Base command
+                OPENCRAFT_COMMAND = f"./opencraft2.x86_64 \
                     -serverUrl {worker_ip} -serverPort 7979 -deploymentPort 7980 \
-                    -signalingUrl ws://{signaling_ip}:7981 \
                     -logFile ./logs/opencraft2_log.txt \
-                    -profiler-enable \
-                    -logStats -statsFile ./logs/stats.csv \
-                    -duration {config['benchmark']['experiment_duration']}"
+                    -logStats -statsFile ./logs/stats.csv "
+                
+                duration = int(config['benchmark']['opencraft_experiment_duration'])
+                playType = "Client"
 
+                # Player simulation
+                if config['benchmark']['opencraft_player_emulation_type'] == "Playback":
+                    OPENCRAFT_COMMAND += f"-emulationType Playback \
+                    -emulationFile ./input_recordings/{config['benchmark']['opencraft_player_emulation_recording_file']} \
+                    -userID {endpoint_i} "
+                
+                if config['benchmark']['opencraft_player_emulation_type'] == "Simulation":
+                    playType = "SimulatedClient"
+                    numSimPlayers = config['benchmark']['opencraft_num_simulated_players']
+                    joinInterval = config['benchmark']['opencraft_simulated_player_join_interval']
+                    playerSimulationBehaviour = config['benchmark']['opencraft_player_emulation_simulation_behaviour']
+                    startDelay = endpoint_i * numSimPlayers * joinInterval
+                    duration -= startDelay # make sure all endpoints end at the same time
+                    OPENCRAFT_COMMAND += f"-emulationType Simulation \
+                    -playerSimulationBehaviour {playerSimulationBehaviour} \
+                    -numSimulatedPlayers {numSimPlayers} -simulatedJoinInterval {joinInterval} \
+                    -userID {endpoint_i * numSimPlayers} -startDelay {startDelay} \
+                    -batchmode -nographics " # todo, currently this means a simulated client cannot host streamed gaming
+
+                OPENCRAFT_COMMAND += f"-playType {playType} -duration {duration} "
+                
+                # Deployment configuration
+                if config['benchmark']['opencraft_endpoint_remote_config']:
+                    OPENCRAFT_COMMAND += f"-deploymentID {endpoint_i + 1} -remoteConfig -deploymentURL {worker_ip} "
+
+                # Streamed gaming client/host
+                WEBSERVER_COMMAND = "echo NOT RUNNING STREAMED GAMING"
+                is_stream_guest = False # todo!
+                if using_streaming:
+                    OPENCRAFT_COMMAND += "-screen-fullscreen 0 -screen-width 1920 -screen-height 1080 "
+
+                    if is_stream_guest:
+                        signaling_ip = endpoints[stream_client_id_cutoff - endpoint_i].split('@')[1]
+                        OPENCRAFT_COMMAND += f"-multiplayRole Guest -signalingUrl ws://{signaling_ip}:7981 "
+                        WEBSERVER_COMMAND = f"echo RUNNING STREAMED CLIENT GUEST"
+                    else:
+                        OPENCRAFT_COMMAND += "-multiplayRole Host -signalingUrl ws://127.0.0.1:7981 "
+                        WEBSERVER_COMMAND = "./server -p 7981"
+                
                 
                 CLIENT_CONTAINER_COMMAND = ["sh", "-c"]+[" \'" +WEBSERVER_COMMAND + " & ws_pid=$! ; " + OPENCRAFT_COMMAND + " ; kill $ws_pid \'"]
 
@@ -129,16 +147,14 @@ def start_endpoint_opencraft2(config, machines):
 
                 logging.info("Launch %s", cont_name)
 
-                
                 command = [
                         "docker",
                         "container",
                         "run",
                         "--detach",
-                        "--cpus=%i" % float((config["benchmark"]["opencraft_endpoint_cpu"][endpoint_i])),
+                        "--cpus=%i" % (config["benchmark"]["application_endpoint_cpu"]),
                         "--memory=%ig" % (config["benchmark"]["application_endpoint_memory"]),
                         "--network=host",
-                        #f"-p {signaling_port}:{signaling_port}/udp",
                         "-v", "./logs/%s:/opencraft2/logs/" % cont_name
                     ]
                 
@@ -556,7 +572,7 @@ def get_endpoint_output_opencraft2(config, machines, container_names, use_ssh=Tr
 
     # Retrieve log files from all endpoints
     ssh_entry = config["endpoint_ssh"]
-    commands = [["scp", "-r", "-i", config["ssh_key"], "%s:~/logs" % ssh, "./results/"] for ssh in ssh_entry]
+    commands = [["scp", "-r", "-i", config["ssh_key"], "%s:~/logs/" % ssh, "./results/"] for ssh in ssh_entry]
     results = machines[0].process(config, commands)
 
     # Check for scp errors

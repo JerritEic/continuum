@@ -28,7 +28,7 @@ spec:
       requests:
         memory: "{{ memory_req }}Mi"
         cpu: {{ cpu_req }}
-    command: ["./opencraft2.x86_64", "-playType", "Server", "-nographics", "-batchmode", "-localConfigJson","./localconfig.json","-logFile", "./logs/opencraft2_log.txt", "-profiler-enable", "-logStats", "-statsFile", "./logs/stats.csv","-deploymentID", "0", "-deploymentJson", "./config/{{ deployment_config }}", "-duration", "{{ experiment_duration }}"]
+    command: ["./opencraft2.x86_64", "-playType", "Server", "-nographics", "-batchmode", "-localConfigJson","./localconfig.json","-logFile", "./logs/opencraft2_log.txt", "-profiler-enable", "-logStats", "-statsFile", "./logs/stats.csv","-deploymentID", "0", "-deploymentJson", "./config/{{ deployment_config }}", "-duration", "{{ experiment_duration }}", "-terrainType", "{{ terrain_type }}", "-networkTickRate", "{{ tps }}", "-simulationTickRate", "{{ tps }}"]
   volumes:
   - name: logs-volume
     hostPath:

@@ -1,0 +1,22 @@
+{
+"nodes":[
+	{
+		"nodeID":0,
+		"nodeIP":"127.0.0.1",
+		"worldConfigs":[
+			{
+			"worldName": "GameServer",
+			"worldType":"Server",
+			"initializationMode":"Connect",
+			"multiplayStreamingRoles":"Disabled",
+			"serverNodeID":-1,
+			"streamingNodeID":-1,
+			"numThinClients":0,
+			"services":[],
+			"serviceFilterType":"Includes"
+			}
+		]
+	}
+], 
+"experimentActions":[]
+}

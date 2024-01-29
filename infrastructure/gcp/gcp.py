@@ -470,13 +470,16 @@ def base_install(config, machines):
 
     if not config["infrastructure"]["infra_only"]:
         if any("cloud" in base_name for base_name in machines[0].base_names):
+            yml_path = ".continuum/cloud/base_install.yml"
+            if config["benchmark"]["opencraft_server_baremetal"]:
+                yml_path = ".continuum/cloud/baremetal_base_install.yml"
             command = [
                 "ansible-playbook",
                 "-i",
                 os.path.join(config["infrastructure"]["base_path"], ".continuum/inventory_vms"),
                 os.path.join(
                     config["infrastructure"]["base_path"],
-                    ".continuum/cloud/base_install.yml",
+                    yml_path,
                 ),
             ]
             commands.append(command)

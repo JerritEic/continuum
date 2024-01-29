@@ -16,9 +16,10 @@ def set_container_location(config):
         config (dict): Parsed configuration
     """
     source = "jerriteic/opencraft2"
-    # Container application, we use 1 image for everything
+    # Container applications
     config["images"] = {
-        "worker": "%s:base" % (source)
+        "endpoint": "%s:base" % (source),
+        "worker": "%s:headless" % (source)
     }
 
 def add_options(_config):
@@ -30,10 +31,20 @@ def add_options(_config):
     Returns:
         list(list()): Options to add
     """
-    settings = [["streamed_client_ratio", float, lambda x: x >= 0.0, True, 0.0],
-                ["experiment_duration", int, lambda x: x >= 0, True, 60],
-                ["opencraft_endpoint_cpu", list, lambda x: True, False, []],
-                ["deployment_config", str, lambda _: True, True, ""],]
+    # Option | Type | Condition | Mandatory | Default
+    settings = [["opencraft_streamed_client_ratio", float, lambda x: x >= 0.0, False, 0.0],
+                ["opencraft_experiment_duration", int, lambda x: x >= 0, True, 60],
+                ["opencraft_tps", int, lambda x: x >= 0, False, 60],
+                ["opencraft_endpoint_remote_config", bool, lambda _: True, False, True],
+                ["opencraft_player_emulation_type", str, lambda _: True, False, "Playback"],
+                ["opencraft_player_emulation_recording_file", str, lambda _: True, False, "42_recording5.inputtrace"],
+                ["opencraft_player_emulation_simulation_behaviour", str, lambda _: True, False, "BoundedRandom"],
+                ["opencraft_terrain_type", str, lambda _: True, False, "default"],
+                ["opencraft_num_simulated_players", int, lambda x: x >= 0, False, 0],
+                ["opencraft_simulated_player_join_interval", int, lambda x: x >= 0, False, 0],
+                # ["opencraft_endpoint_cpu", list, lambda _: True, False, []],
+                ["opencraft_deployment_config", str, lambda _: True, True, ""],
+                ["opencraft_server_baremetal", bool, lambda _: True, False, False],]
     return settings
 
 
@@ -69,8 +80,10 @@ def start_worker(config, machines):
         (list): Application variables
     """
     app_vars = {
-         "experiment_duration": int(config["benchmark"]["experiment_duration"]),
-         "deployment_config": str(config["benchmark"]["deployment_config"]),
+         "experiment_duration": int(config["benchmark"]["opencraft_experiment_duration"]),
+         "deployment_config": str(config["benchmark"]["opencraft_deployment_config"]),
+         "terrain_type": str(config["benchmark"]["opencraft_terrain_type"]),
+         "tps": int(config["benchmark"]["opencraft_tps"])
     }
     return app_vars
 

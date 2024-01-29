@@ -33,17 +33,21 @@ def verify_options(parser, config):
         parser (ArgumentParser): Argparse object
         config (ConfigParser): ConfigParser object
     """
-    if (
-        config["infrastructure"]["cloud_nodes"] < 2
-        or config["infrastructure"]["edge_nodes"] != 0
-        or config["infrastructure"]["endpoint_nodes"] < 0
-    ):
-        parser.error("ERROR: Kubernetes requires #clouds>=2, #edges=0, #endpoints>=0")
-    elif (
-        config["infrastructure"]["endpoint_nodes"] % (config["infrastructure"]["cloud_nodes"] - 1)
-        != 0
-    ):
-        parser.error(r"ERROR: Kubernetes requires (#clouds-1) % #endpoints == 0 (-1 for control)")
+    if config["benchmark"]["opencraft_server_baremetal"]:
+        if config["infrastructure"]["cloud_nodes"] != 1:
+            parser.error("ERROR: Baremetal server requires #clouds==1")
+    else:
+        if (
+            config["infrastructure"]["cloud_nodes"] < 2
+            or config["infrastructure"]["edge_nodes"] != 0
+            or config["infrastructure"]["endpoint_nodes"] < 0
+        ):
+            parser.error("ERROR: Kubernetes requires #clouds>=2, #edges=0, #endpoints>=0")
+        elif (
+            config["infrastructure"]["endpoint_nodes"] % (config["infrastructure"]["cloud_nodes"] - 1)
+            != 0
+        ):
+            parser.error(r"ERROR: Kubernetes requires (#clouds-1) % #endpoints == 0 (-1 for control)")
 
 
 def start(config, machines):
@@ -55,29 +59,39 @@ def start(config, machines):
     """
     logging.info("Start Kubernetes cluster on VMs")
     commands = []
+    if config["benchmark"]["opencraft_server_baremetal"]:
+        # Setup baremetal cloud worker
+        commands.append(
+            [
+                "ansible-playbook",
+                "-i",
+                os.path.join(config["infrastructure"]["base_path"], ".continuum/inventory_vms"),
+                os.path.join(config["infrastructure"]["base_path"], ".continuum/cloud/baremetal_install.yml"),
+            ]
+        )
+    else:
+        # Setup cloud controller
+        commands.append(
+            [
+                "ansible-playbook",
+                "-i",
+                os.path.join(config["infrastructure"]["base_path"], ".continuum/inventory_vms"),
+                os.path.join(
+                    config["infrastructure"]["base_path"],
+                    ".continuum/cloud/control_install.yml",
+                ),
+            ]
+        )
 
-    # Setup cloud controller
-    commands.append(
-        [
-            "ansible-playbook",
-            "-i",
-            os.path.join(config["infrastructure"]["base_path"], ".continuum/inventory_vms"),
-            os.path.join(
-                config["infrastructure"]["base_path"],
-                ".continuum/cloud/control_install.yml",
-            ),
-        ]
-    )
-
-    # Setup cloud worker
-    commands.append(
-        [
-            "ansible-playbook",
-            "-i",
-            os.path.join(config["infrastructure"]["base_path"], ".continuum/inventory_vms"),
-            os.path.join(config["infrastructure"]["base_path"], ".continuum/cloud/install.yml"),
-        ]
-    )
+        # Setup cloud worker
+        commands.append(
+            [
+                "ansible-playbook",
+                "-i",
+                os.path.join(config["infrastructure"]["base_path"], ".continuum/inventory_vms"),
+                os.path.join(config["infrastructure"]["base_path"], ".continuum/cloud/install.yml"),
+            ]
+        )
 
     results = machines[0].process(config, commands)
 
@@ -260,7 +274,7 @@ def start_worker(config, machines, app_vars, get_starttime=False):
     if config["benchmark"]["resource_manager"] == "mist":
         return start_worker_mist(config, machines, app_vars)
 
-    if config["benchmark"]["resource_manager"] == "baremetal":
+    if config["benchmark"]["opencraft_server_baremetal"]:
         return start_worker_baremetal(config, machines, app_vars)
 
     # For non-mist/baremetal deployments
@@ -616,6 +630,10 @@ def start_worker_baremetal(config, machines, app_vars):
     Returns:
         list(list(str)): Names of docker containers launched per machine
     """
+    
+    if config["benchmark"]["application"] == "opencraft2":
+        return start_worker_baremetal_opencraft(config, machines, app_vars)
+    
     logging.info("Deploy Docker containers on endpoints with publisher application")
 
     if config["infrastructure"]["cloud_nodes"] != 1 and config["infrastructure"]["edge_nodes"] != 0:
@@ -705,6 +723,138 @@ def start_worker_baremetal(config, machines, app_vars):
 
     return [cont_name]
 
+def start_worker_baremetal_opencraft(config, machines, app_vars):
+    """Start running the endpoint containers using Docker.
+
+    Assumptions for now:
+    - You can only have one worker
+    - The worker is a cloud node
+
+    Instructions for starting/stopping/installing mosquitto on bare-metal (only requirement)
+    - sudo apt install mosquitto=1.6.9-1
+    - mosquitto -d -p 1883
+    - sudo systemctl start mosquitto.service
+    - sudo systemctl stop mosquitto.service
+
+    Args:
+        config (dict): Parsed configuration
+        machines (list(Machine object)): List of machine objects representing physical machines
+        app_vars (list): Dictionary of variables for a specific app
+
+    Returns:
+        list(list(str)): Names of docker containers launched per machine
+    """
+    logging.info("Deploy opencraft worker on baremetal")
+
+    # Parse to string
+    vars_str = ""
+    for k, v in app_vars.items():
+        vars_str += str(k) + "=" + str(v) + " "
+    
+    # Copy configs on cloud controller
+    command = 'ansible-playbook -i %s --extra-vars "%s" %s' % (
+        os.path.join(config["infrastructure"]["base_path"], ".continuum/inventory_vms"),
+        vars_str[:-1],
+        os.path.join(config["infrastructure"]["base_path"], ".continuum/launch_benchmark.yml"),
+    )
+
+    ansible.check_output(machines[0].process(config, command, shell=True)[0])
+
+    if config["infrastructure"]["cloud_nodes"] != 1 and config["infrastructure"]["edge_nodes"] != 0:
+        logging.error("ERROR: Baremetal currently only works with #clouds==1 and #edges==0")
+        sys.exit()
+
+    cont_name = config["cloud_ssh"][0].split("@")[0]
+
+    env_list = []
+    for e in app_vars:
+        env_list.append("--env")
+        env_list.append(e)
+    
+    WORKER_CONTAINER_COMMAND = ["./opencraft2.x86_64", "-playType", "Server", "-nographics", "-batchmode",
+                                "-logFile", "./logs/opencraft2_log.txt",
+                                "-logStats", "-statsFile", "./logs/stats.csv",
+                                "-terrainType", f"{app_vars['terrain_type']}",
+                                "-deploymentID", "0", "-deploymentJson", f"./config/{app_vars['deployment_config']}",
+                                "-duration", f"{app_vars['experiment_duration']}",
+                                "-networkTickRate", f"{app_vars['tps']}", "-simulationTickRate", f"{app_vars['tps']}"]
+
+    command = (
+        [
+            "docker",
+            "container",
+            "run",
+            "--detach",
+            "--cpus=%i" % float((config["benchmark"]["application_worker_cpu"])),
+            "--memory=%ig" % (config["benchmark"]["application_worker_memory"]),
+            "--network=host",
+            f"-v ./logs/{cont_name}:/opencraft2/logs/",
+            "-v ./configs/:/opencraft2/config/"
+        ]
+        + env_list
+        + [
+            "--name",
+            cont_name,
+            os.path.join(config["registry"], config["images"]["worker"].split(":")[1]),
+        ]
+        + WORKER_CONTAINER_COMMAND
+    )
+
+    results = machines[0].process(config, [command], ssh=[config["cloud_ssh"][0]])
+
+    # Checkout process output
+    for ssh, (output, error) in zip([config["cloud_ssh"][0]], results):
+        logging.debug("Check output of opencraft worker start in ssh [%s]", ssh)
+
+        if error and "Your kernel does not support swap limit capabilities" not in error[0]:
+            logging.error("".join(error))
+            sys.exit()
+        elif not output:
+            logging.error("No output from docker container")
+            sys.exit()
+
+    # Wait for containers to be succesfully deployed
+    logging.info("Wait for baremetal opencraft worker applications to be deployed")
+    time.sleep(10)
+
+    for ssh, cont_name in zip([config["cloud_ssh"][0]], [cont_name]):
+        deployed = False
+
+        while not deployed:
+            command = 'docker container ls -a --format \\"{{.ID}}: {{.Status}} {{.Names}}\\"'
+            output, error = machines[0].process(config, command, shell=True, ssh=ssh)[0]
+
+            if error:
+                logging.error("".join(error))
+                sys.exit()
+            elif not output:
+                logging.error("No output from docker container")
+                sys.exit()
+
+            # Get status of docker container
+            status_line = None
+            for line in output:
+                if cont_name in line:
+                    status_line = line
+
+            if status_line is None:
+                logging.error(
+                    "ERROR: Could not find status of container %s running in VM %s: %s",
+                    cont_name,
+                    ssh.split("@")[0],
+                    "".join(output),
+                )
+                sys.exit()
+
+            parsed = status_line.rstrip().split(" ")
+
+            # If not yet up, wait
+            if parsed[1] == "Up":
+                deployed = True
+            else:
+                time.sleep(5)
+
+    return None, "Up"
 
 def wait_worker_completion(config, machines):
     """Wait for all containers to be finished running the benchmark on cloud/edge workers
@@ -713,6 +863,10 @@ def wait_worker_completion(config, machines):
         config (dict): Parsed configuration
         machines (list(Machine object)): List of machine objects representing physical machines
     """
+    if config["benchmark"]["opencraft_server_baremetal"]:
+        wait_worker_completion_opencraft_baremetal(config, machines)
+        return
+    
     logging.info("Wait for pods on cloud/edge workers to finish")
     get_list = True
     i = 0
@@ -766,6 +920,54 @@ def wait_worker_completion(config, machines):
                 app_status,
             )
             sys.exit()
+
+def wait_worker_completion_opencraft_baremetal(config, machines):
+    """Wait for all containers to be finished running the benchmark on cloud/edge workers
+
+    Args:
+        config (dict): Parsed configuration
+        machines (list(Machine object)): List of machine objects representing physical machines
+    """
+    logging.info("Wait for baremetal opencraft worker applications to be done")
+    time.sleep(10)
+    cont_name = config["cloud_ssh"][0].split("@")[0]
+
+    for ssh, cont_name in zip([config["cloud_ssh"][0]], [cont_name]):
+        finished = False
+
+        while not finished:
+            command = 'docker container ls -a --format \\"{{.ID}}: {{.Status}} {{.Names}}\\"'
+            output, error = machines[0].process(config, command, shell=True, ssh=ssh)[0]
+
+            if error:
+                logging.error("".join(error))
+                sys.exit()
+            elif not output:
+                logging.error("No output from docker container")
+                sys.exit()
+
+            # Get status of docker container
+            status_line = None
+            for line in output:
+                if cont_name in line:
+                    status_line = line
+
+            if status_line is None:
+                logging.error(
+                    "ERROR: Could not find status of container %s running in VM %s: %s",
+                    cont_name,
+                    ssh.split("@")[0],
+                    "".join(output),
+                )
+                sys.exit()
+
+            parsed = status_line.rstrip().split(" ")
+
+            # If not yet up, wait
+            if parsed[1] != "Up":
+                finished = True
+            else:
+                time.sleep(5)
 
 
 def get_worker_output(config, machines, container_names=None, get_description=False):
@@ -909,7 +1111,12 @@ def get_worker_output_opencraft2(config, machines, get_description):
         list(list(str)): Output of each container ran on the cloud / edge
     """
     logging.info("Gather output from Opencraft2 servers")
-    commands = [["scp", "-r", "-i", config["ssh_key"], "-r", "%s:/logs/*" % ssh, "./results/"] for ssh in config["cloud_ssh"][1:]]
+    if config["benchmark"]["opencraft_server_baremetal"]:
+        sshs = [config["cloud_ssh"][0]]
+        commands = [["scp", "-r", "-i", config["ssh_key"], "-r", "%s:~/logs/*" % ssh, "./results/"] for ssh in sshs]
+    else:
+        sshs = config["cloud_ssh"][1:]
+        commands = [["scp", "-r", "-i", config["ssh_key"], "-r", "%s:/logs/*" % ssh, "./results/"] for ssh in sshs]
     results = machines[0].process(config, commands)
 
     # Check for errors

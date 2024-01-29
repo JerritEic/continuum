@@ -1,0 +1,9 @@
+---
+- hosts: cloudcontroller
+  become: true
+  tasks:
+    - name: Create config folder
+      ansible.builtin.copy:
+        src: configs/
+        dest: /home/{{ username }}/configs/
+
