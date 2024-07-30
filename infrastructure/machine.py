@@ -124,6 +124,7 @@ BASE_NAMES                  %s""" % (
         ssh=None,
         ssh_key=True,
         retryonoutput=False,
+        ssh_timeout=0
     ):
         """Execute a process using the subprocess library, return the output/error of the process
 
@@ -175,7 +176,12 @@ BASE_NAMES                  %s""" % (
                     # You can't ssh to the machine you're already on
                     continue
 
-                add = ["ssh", s]
+                add = ["ssh"]
+                # Add a timeout to SSH connection
+                if ssh_timeout > 0:
+                    add += ["-o", f"ConnectTimeout={ssh_timeout}"]
+                
+                add += [s]
                 if ssh_key and s != self.name:
                     # You can only use this custom key to SSH to VMs, not to physical machines
                     add += ["-i", config["ssh_key"]]

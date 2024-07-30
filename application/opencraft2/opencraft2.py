@@ -37,12 +37,13 @@ def add_options(_config):
                 ["opencraft_tps", int, lambda x: x >= 0, False, 60],
                 ["opencraft_endpoint_remote_config", bool, lambda _: True, False, True],
                 ["opencraft_player_emulation_type", str, lambda _: True, False, "Playback"],
-                ["opencraft_player_emulation_recording_file", str, lambda _: True, False, "42_recording5.inputtrace"],
+                ["opencraft_player_emulation_recording_file", str, lambda _: True, False, "42_recording1.inputtrace"],
                 ["opencraft_player_emulation_simulation_behaviour", str, lambda _: True, False, "BoundedRandom"],
                 ["opencraft_terrain_type", str, lambda _: True, False, "default"],
                 ["opencraft_num_simulated_players", int, lambda x: x >= 0, False, 0],
                 ["opencraft_simulated_player_join_interval", int, lambda x: x >= 0, False, 0],
-                # ["opencraft_endpoint_cpu", list, lambda _: True, False, []],
+                ["opencraft_start_endpoint_gap", int, lambda x: x >= 0, False, 0],
+                ["opencraft_streamed_client_cpu", float, lambda x: x >= 0.001, False, 1.0],
                 ["opencraft_deployment_config", str, lambda _: True, True, ""],
                 ["opencraft_server_baremetal", bool, lambda _: True, False, False],]
     return settings

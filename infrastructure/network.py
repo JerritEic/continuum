@@ -25,8 +25,8 @@ def generate_tc_commands(config, values, ips, disk, is_endpoint = False):
     network = "ens2"
     if config["infrastructure"]["provider"] == "gcp":
         network = "ens4"
-    if is_endpoint:
-        network = "ens5"
+        if is_endpoint and config["infrastructure"]["use_gpu_endpoint"]:
+            network = "ens5"
 
     commands = []
 
@@ -130,7 +130,7 @@ def tc_values(config):
     # Default values
     cloud = [0, 0, 1000]  # Between cloud nodes (wired)
     edge = [7.5, 2.5, 1000]  # Between edge nodes (wired)
-    endpoint = [7.5, 2.5, 1000]  # Between edge nodes (wired)
+    endpoint = [7.5, 2.5, 1000]  # Between endpoint nodes (wired)
     cloud_edge = [7.5, 2.5, 1000]  # Between cloud and edge (wired)
 
     # Set values based on 4g/5g preset (if the user didn't set anything, 4g is default)

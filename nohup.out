@@ -1,0 +1,52 @@
+[2024-02-23 10:18:45 /mnt/sdb/jei/continuum/continuum.py:93 - set_logging() ] Logging has been enabled. Writing to stdout and file logs/2024-02-23_09:18:45_cloud_kubernetes_opencraft2.log
+[2024-02-23 10:18:45 /mnt/sdb/jei/continuum/infrastructure/machine.py:337 - make_machine_objects() ] Initialize machine objects
+[2024-02-23 10:18:45 /mnt/sdb/jei/continuum/infrastructure/infrastructure.py:74 - schedule_equal() ] Schedule VMs on machine: Based on utilization
+[2024-02-23 10:18:45 /mnt/sdb/jei/continuum/infrastructure/machine.py:360 - remove_idle() ] Update machine list based on whether they will actually be used
+[2024-02-23 10:18:45 /mnt/sdb/jei/continuum/infrastructure/gcp/gcp.py:25 - delete_vms() ] Start deleting VMs
+[2024-02-23 10:19:42 /mnt/sdb/jei/continuum/infrastructure/infrastructure.py:251 - create_tmp_dir() ] Create a temporary directory for generated files
+[2024-02-23 10:19:43 /mnt/sdb/jei/continuum/infrastructure/gcp/gcp.py:94 - set_ip_names() ] Set the names of all VMs for each physical machine
+[2024-02-23 10:19:43 /mnt/sdb/jei/continuum/infrastructure/machine.py:450 - print_schedule() ] ------------------------------------------------------------------------------
+[2024-02-23 10:19:43 /mnt/sdb/jei/continuum/infrastructure/machine.py:451 - print_schedule() ] Schedule of VMs and containers on physical machines
+[2024-02-23 10:19:43 /mnt/sdb/jei/continuum/infrastructure/machine.py:452 - print_schedule() ] ------------------------------------------------------------------------------
+[2024-02-23 10:19:43 /mnt/sdb/jei/continuum/infrastructure/machine.py:454 - print_schedule() ] Machine                        Cloud nodes     Edge nodes      Endpoints      
+[2024-02-23 10:19:43 /mnt/sdb/jei/continuum/infrastructure/machine.py:457 - print_schedule() ] local                          1               0               2              
+[2024-02-23 10:19:43 /mnt/sdb/jei/continuum/infrastructure/machine.py:465 - print_schedule() ] ------------------------------------------------------------------------------
+[2024-02-23 10:19:43 /mnt/sdb/jei/continuum/infrastructure/infrastructure.py:417 - docker_registry() ] Create local Docker registry
+[2024-02-23 10:19:50 /mnt/sdb/jei/continuum/infrastructure/gcp/gcp.py:601 - start() ] Set up GCP
+[2024-02-23 10:19:50 /mnt/sdb/jei/continuum/infrastructure/gcp/gcp.py:602 - start() ] Generate configuration files for Infrastructure and Ansible
+[2024-02-23 10:19:50 /mnt/sdb/jei/continuum/infrastructure/infrastructure.py:205 - create_keypair() ] Create SSH keys to be used with VMs
+[2024-02-23 10:19:50 /mnt/sdb/jei/continuum/infrastructure/gcp/gcp.py:225 - copy() ] Start copying infrastructure files to all nodes
+[2024-02-23 10:19:50 /mnt/sdb/jei/continuum/infrastructure/gcp/gcp.py:555 - start_vms() ] Start VM creation using Terraform with GCP
+[2024-02-23 10:21:11 /mnt/sdb/jei/continuum/infrastructure/infrastructure.py:363 - add_ssh() ] Start adding ssh keys to the known_hosts file for each VM (base=True)
+[2024-02-23 10:21:11 /mnt/sdb/jei/continuum/infrastructure/infrastructure.py:396 - add_ssh() ] Wait for VM to have started up
+[2024-02-23 10:21:16 /mnt/sdb/jei/continuum/infrastructure/infrastructure.py:396 - add_ssh() ] Wait for VM to have started up
+[2024-02-23 10:21:40 /mnt/sdb/jei/continuum/infrastructure/infrastructure.py:396 - add_ssh() ] Wait for VM to have started up
+[2024-02-23 10:21:40 /mnt/sdb/jei/continuum/infrastructure/infrastructure.py:406 - add_ssh() ] SSH keys have been added
+[2024-02-23 10:21:40 /mnt/sdb/jei/continuum/infrastructure/ansible.py:201 - create_inventory_vm() ] Generate Ansible inventory file for VMs
+[2024-02-23 10:21:40 /mnt/sdb/jei/continuum/infrastructure/ansible.py:351 - copy() ] Start copying Ansible files to all nodes
+[2024-02-23 10:21:40 /mnt/sdb/jei/continuum/infrastructure/gcp/gcp.py:468 - base_install() ] Install software in the VMs
+[2024-02-23 10:22:35 /mnt/sdb/jei/continuum/infrastructure/gcp/gcp.py:355 - move_registry() ] Create Docker registry on cloud0@34.118.4.135 - 10.0.0.2:5000
+[2024-02-23 10:22:39 /mnt/sdb/jei/continuum/infrastructure/gcp/gcp.py:379 - move_registry() ] Copy all container images to new remote registry
+[2024-02-23 10:50:39 /mnt/sdb/jei/continuum/infrastructure/infrastructure.py:532 - docker_pull() ] Pull docker containers into base images
+[2024-02-23 10:50:41 /mnt/sdb/jei/continuum/infrastructure/infrastructure.py:573 - docker_pull() ] Execute docker pull command on address [endpoint0@34.116.174.3]
+[2024-02-23 10:50:41 /mnt/sdb/jei/continuum/infrastructure/infrastructure.py:573 - docker_pull() ] Execute docker pull command on address [endpoint1@34.116.223.209]
+[2024-02-23 10:50:42 /mnt/sdb/jei/continuum/resource_manager/kubernetes/kubernetes.py:60 - start() ] Start Kubernetes cluster on VMs
+[2024-02-23 10:50:51 /mnt/sdb/jei/continuum/resource_manager/endpoint/endpoint.py:20 - start() ] Start setting up endpoint VMs
+[2024-02-23 10:50:58 /mnt/sdb/jei/continuum/resource_manager/kubernetes/kubernetes.py:747 - start_worker_baremetal_opencraft() ] Deploy opencraft worker on baremetal
+[2024-02-23 10:51:08 /mnt/sdb/jei/continuum/resource_manager/kubernetes/kubernetes.py:817 - start_worker_baremetal_opencraft() ] Wait for baremetal opencraft worker applications to be deployed
+[2024-02-23 10:51:20 /mnt/sdb/jei/continuum/application/application.py:246 - kube() ] Workers started at None with status Up
+[2024-02-23 10:51:20 /mnt/sdb/jei/continuum/resource_manager/endpoint/endpoint.py:62 - start_endpoint_opencraft2() ] Deploy Opencraft2 Docker containers on endpoints
+Baremetal flag provided, setting worker ip to 10.0.0.2
+[2024-02-23 10:51:20 /mnt/sdb/jei/continuum/resource_manager/endpoint/endpoint.py:150 - start_endpoint_opencraft2() ] Launch streamedclient-0-0
+[2024-02-23 10:51:20 /mnt/sdb/jei/continuum/resource_manager/endpoint/endpoint.py:150 - start_endpoint_opencraft2() ] Launch client-1-0
+[2024-02-23 10:51:27 /mnt/sdb/jei/continuum/resource_manager/endpoint/endpoint.py:472 - wait_endpoint_completion_opencraft2() ] Wait on all Opencraft2 clients to finish
+[2024-02-23 10:54:43 /mnt/sdb/jei/continuum/resource_manager/endpoint/endpoint.py:513 - wait_endpoint_completion_opencraft2() ] All Opencraft2 clients have finished
+[2024-02-23 10:54:43 /mnt/sdb/jei/continuum/resource_manager/kubernetes/kubernetes.py:931 - wait_worker_completion_opencraft_baremetal() ] Wait for baremetal opencraft worker applications to be done
+[2024-02-23 10:54:54 /mnt/sdb/jei/continuum/application/application.py:256 - kube() ] Benchmark has been finished, prepare results
+[2024-02-23 10:54:54 /mnt/sdb/jei/continuum/resource_manager/endpoint/endpoint.py:573 - get_endpoint_output_opencraft2() ] Extract output from Opencraft2 clients
+[2024-02-23 10:54:55 /mnt/sdb/jei/continuum/resource_manager/kubernetes/kubernetes.py:1113 - get_worker_output_opencraft2() ] Gather output from Opencraft2 servers
+[2024-02-23 10:54:56 /mnt/sdb/jei/continuum/continuum.py:120 - main() ] To access the VMs:
+	ssh cloud0@34.118.4.135 -i /home/jei/.ssh/id_rsa_continuum
+	ssh endpoint0@34.116.174.3 -i /home/jei/.ssh/id_rsa_continuum
+	ssh endpoint1@34.116.223.209 -i /home/jei/.ssh/id_rsa_continuum
+

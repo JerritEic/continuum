@@ -66,6 +66,7 @@ def start_endpoint_opencraft2(config, machines):
     container_names = []
     
     worker_ips = config["cloud_ips_internal"]
+    endpoint_ips = config["endpoint_ips_internal"]
     if config["benchmark"]["opencraft_server_baremetal"]:
         print(f"Baremetal flag provided, setting worker ip to {machines[0].cloud_controller_ips_internal[0]}")
         worker_ips = [machines[0].cloud_controller_ips_internal[0]]
@@ -105,8 +106,9 @@ def start_endpoint_opencraft2(config, machines):
                     playType = "SimulatedClient"
                     numSimPlayers = config['benchmark']['opencraft_num_simulated_players']
                     joinInterval = config['benchmark']['opencraft_simulated_player_join_interval']
+                    gap = config['benchmark']['opencraft_start_endpoint_gap']
                     playerSimulationBehaviour = config['benchmark']['opencraft_player_emulation_simulation_behaviour']
-                    startDelay = endpoint_i * numSimPlayers * joinInterval
+                    startDelay = endpoint_i * gap + endpoint_i * numSimPlayers * joinInterval
                     duration -= startDelay # make sure all endpoints end at the same time
                     OPENCRAFT_COMMAND += f"-emulationType Simulation \
                     -playerSimulationBehaviour {playerSimulationBehaviour} \
@@ -122,17 +124,17 @@ def start_endpoint_opencraft2(config, machines):
 
                 # Streamed gaming client/host
                 WEBSERVER_COMMAND = "echo NOT RUNNING STREAMED GAMING"
-                is_stream_guest = False # todo!
+                is_stream_guest = endpoint_i + 1 <= stream_client_id_cutoff
                 if using_streaming:
                     OPENCRAFT_COMMAND += "-screen-fullscreen 0 -screen-width 1920 -screen-height 1080 "
 
                     if is_stream_guest:
-                        signaling_ip = endpoints[stream_client_id_cutoff - endpoint_i].split('@')[1]
+                        signaling_ip = endpoint_ips[stream_client_id_cutoff + endpoint_i]
                         OPENCRAFT_COMMAND += f"-multiplayRole Guest -signalingUrl ws://{signaling_ip}:7981 "
                         WEBSERVER_COMMAND = f"echo RUNNING STREAMED CLIENT GUEST"
                     else:
                         OPENCRAFT_COMMAND += "-multiplayRole Host -signalingUrl ws://127.0.0.1:7981 "
-                        WEBSERVER_COMMAND = "./server -p 7981"
+                        WEBSERVER_COMMAND = "./webserver -p 7981"
                 
                 
                 CLIENT_CONTAINER_COMMAND = ["sh", "-c"]+[" \'" +WEBSERVER_COMMAND + " & ws_pid=$! ; " + OPENCRAFT_COMMAND + " ; kill $ws_pid \'"]
@@ -146,13 +148,13 @@ def start_endpoint_opencraft2(config, machines):
                     env.append("CLOUD_CONTROLLER_IP=%s" % (config["control_ips"][0]))
 
                 logging.info("Launch %s", cont_name)
-
+                cpus = config["benchmark"]["opencraft_streamed_client_cpu"] if is_stream_guest else config["benchmark"]["application_endpoint_cpu"]
                 command = [
                         "docker",
                         "container",
                         "run",
                         "--detach",
-                        "--cpus=%i" % (config["benchmark"]["application_endpoint_cpu"]),
+                        "--cpus=%i" % (cpus),
                         "--memory=%ig" % (config["benchmark"]["application_endpoint_memory"]),
                         "--network=host",
                         "-v", "./logs/%s:/opencraft2/logs/" % cont_name
@@ -475,10 +477,10 @@ def wait_endpoint_completion_opencraft2(config, machines, sshs, container_names)
     while unfinished:
         for ssh in sshs:
             command = 'docker container ls -a --format \\"{{.ID}}: {{.Status}} {{.Names}}\\"'
-            output, error = machines[0].process(config, command, shell=True, ssh=ssh)[0]
+            output, error = machines[0].process(config, command, shell=True, ssh=ssh, ssh_timeout=5)[0]
             if error:
                 logging.error("".join(error))
-                sys.exit()
+                #sys.exit()
             elif not output:
                 logging.error("No output from docker container")
                 sys.exit()

@@ -130,7 +130,7 @@ def generate_network(config):
 ###################################################################################################
 
 # Custom image with GPU drivers and host display configured for NVIDIA container runtime
-GPU_IMAGE = "opencraft2/ubuntu2004-nvidia-gpu-docker-xorg-5"
+GPU_IMAGE = "opencraft2/ubuntu2004-nvidia-gpu-docker-xorg-6"
 
 CLOUD_IP = """
 resource "google_compute_address" "cloud_static_ip" {
